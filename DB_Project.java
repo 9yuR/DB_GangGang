@@ -12,7 +12,7 @@ public class DB_Project
         Statement st;
         ResultSet rs;
 
-        String url = "jdbc:postgresql://localhost:5432/";
+        String url = "jdbc:postgresql://localhost:5432/postgres";
         String user = "postgres";
         String password = "103404";
 
@@ -26,79 +26,89 @@ public class DB_Project
             conn = DriverManager.getConnection(url, user, password);
             st = conn.createStatement();
 
-//            final String create_table = "create table Users(userID int, name varchar(10));" +
-//                    "create table review_comment(userID int, uPlace varchar(20), comment varchar(500))" +
-//                    "create table review_starrate(userID int, VisitRoute varchar(50), rating float)";
-//            st.execute(create_table);
+            int user_id = 0;
+            float star;
+            float other_users_star;
+            int end;
+            String visit_route = "";
+            String comment = "";
 
-//            final String insert_values = "insert into Goodshop values(111, '착한가게1', '경기도 수원시 팔달구 우만동 94-16', '01087310672', '정보가 없습니다.','www.google.com/img2', 1000, null);"+
-//                    "insert into Place values(187, 'ko', '아주대학교', '경기도 수원시 영통구 월드컵로 206', '031-254-6802', '정보가 없습니다', null);";
-//            st.execute(insert_values);
-
-            int user_id=1;
             System.out.println("이 프로그램은 착한가격업소 및 관광명소를 추천하는 서비스입니다.");
             while(true) {
+                user_id += 1;
+                // user_ID를 중복 없이 만드는 Trigger -> java.util.random을 사용하여 user_ID가 중복되면 trigger 작동
+//                String user_random = "select * from review_starrate where rating >= %d;\n" +
+//                        "create or replace function test() returns trigger as $$\n" +
+//                        "begin\n" +
+//                        "if exists (select * from Users where userID = New.userID) THEN\n" +
+//                        "return New + 1000;\n" +
+//                        "else\n" +
+//                        "return New;\n" +
+//                        "end if;\n" +
+//                        "end;\n" +
+//                        "$$\n" +
+//                        "language 'plpgsql';\n" +
+//                        "create trigger Random_UserID_Exists";
+//                st.execute(user_random);
+
                 System.out.println("먼저 사용하시는 분의 성함과 추천 받고자 하는 장소의 이름을 입력해주세요.");
                 String location;
                 int user_cost;
-                String user_name;
-                System.out.println("1. Input user name: ");
-                user_name = scan.nextLine();
-                final String insert_user = String.format("insert into Users(%d, %s)", user_id,user_name);
-//                        "insert into review_comment values(user_id, null, null);" +
-//                        "insert into review_starrate values(user_id, null, null);";
+
+                System.out.print("1. Input user name: ");
+                String user_name = scan.next();
+                String insert_user = String.format("insert into Users values(%d, '%s');" +
+                        "insert into review_comment values(%d, null, null);" +
+                        "insert into review_starrate values(%d, null, null);", user_id, user_name, user_id, user_id);
                 st.execute(insert_user);
 
                 System.out.print("2. Input location.(구 단위로 입력): ");
-                location = scan.nextLine();
+                location = scan.next();
 
                 System.out.print("3. Show me the money: ");
                 user_cost = scan.nextInt();
-
-                final String search_location = String.format("select * from (select * from Goodshop where address like '%%s%' and cost <10000 \n" +
-                        "            order by random() limit 1) as a \n"+
+                String search_location = String.format("select * from (select sname, s_info from Goodshop where address like '%%%s%%' and cost < %d \n" +
+                        "order by random() limit 1) as a \n"+
                         "union \n" +
-                        "select * from(select * from Place where address like '%%s%' order by random() limit 1) as b;", location, location);
+                        "select * from(select pName, address from Place where address like '%%%s%%' order by random() limit 1) as b;", location, user_cost, location);
                 rs = st.executeQuery(search_location);
 
+                System.out.println("착한 가격 업소와 추천 명소 검색 결과입니다!");
                 while(rs.next()) {
-//                    int sID = rs.getInt("sID");
-                    String sName = rs.getString("sName");
-                    String s_info = rs.getString("s_info");
-//                    String PH = rs.getString("PH");
-//                    String s_info = rs.getString("s_info");
-//                    String img = rs.getString("img");
-//                    int cost = rs.getInt("cost");
-//                    String s_recommendation = rs.getString("s_recommendation");
-                    System.out.println("착한 가격 업소 검색 결과입니다!");
-//                    System.out.println(String.format("%d | %s | %s | %s | %s | %s | %d | %s |", sID, sName, address, PH, s_info, img, cost, s_recommendation));
-                    System.out.println(String.format("%s, %s", sName, s_info));
-                    // 별점 기능은 일단 테스트 완료 후에 진행하는 것으로~
-                    System.out.print("별점을 입력해주세요(0을 입력할 시 별점리뷰 없이 진행됩니다.):" );
-                    scan.nextLine();
+                    String name_of_shop_or_place = rs.getString("sName");
+                    String info = rs.getString("s_info");
+                    visit_route += name_of_shop_or_place;
+                    visit_route += " ";
+                    System.out.println(String.format("[ %s ]", name_of_shop_or_place));
+                    System.out.println(String.format(" %s", info));
+                }
+                System.out.print("착한 가격 업소에 대한 comment를 달아주세요: ");
+                comment = scan.next();
+                System.out.print(String.format("추천된 동선 [ %s]에 대한 별점을 입력해주세요: ", visit_route));
+                star = scan.nextFloat();
 
+                System.out.print("추천된 경로 외에 다른 사용자들이 다녀간 인기 경로를 확인하시겠습니까? 별점을 입력하면 해당 별점 이상의 추천경로를 알려드립니다.:");
+                other_users_star = scan.nextFloat();
+
+                String other_place = String.format("select VisitRoute, rating from review_starrate where rating >= %f;", other_users_star);
+                rs = st.executeQuery(other_place);
+                System.out.println("디비갱갱 사용자의 발자취,,");
+                while (rs.next()) {
+                    String other_visitroute = rs.getString("VisitRoute");
+                    float other_rating = rs.getFloat("rating");
+                    System.out.println(String.format(" %s : %.1f ", other_visitroute, other_rating));
                 }
 
-//                final String search_cost = "select * from Goodshop where address like '%rocation%' and cost < 10000;";
-//                rs = st.executeQuery(search_cost);
-//
-//                while(rs.next()) {
-//                    int pID = rs.getInt("pID");
-//                    String language = rs.getString("language");
-//                    String pName = rs.getString("pName");
-//                    String address = rs.getString("address");
-//                    String PH = rs.getString("PH");
-//                    String p_info = rs.getString("p_info");
-//                    String p_recommendation = rs.getString("p_recommendation");
-//
-//                    System.out.println("추천 장소입니다!");
-//                    System.out.println(String.format("%d | %s | %s | %s | %s | %s | %s |", pID, language, pName, address, PH, p_info, p_recommendation));
-//
-//                    // 별점 기능은 일단 테스트 완료 후에 진행하는 것으로~
-//                    System.out.print("별점을 입력해주세요 : ");
-//                    scan.nextLine();
-//                }
-                int end;
+
+                String update_comment = String.format("update review_comment\n" +
+                        "set comment = '%s' \n" +
+                        "where userID = %d;", comment, user_id);
+                st.execute(update_comment);
+                String update_starrate = String.format("update review_starrate\n" +
+                        "set VisitRoute = '%s', rating = %f\n" +
+                        "where userID = %d;", visit_route, star, user_id);
+                st.execute(update_starrate);
+
                 System.out.print("다른 사용자로 진행하시겠습니까?(0 입력 시 프로그램 종료): ");
                 end = scan.nextInt();
                 if (end == 0) break;
